@@ -935,7 +935,8 @@ class TestResult:
             return 1.0  # arbitrary 100% error provided to fail test avoiding /0
         elif abs(truth) <= 1e-8 and abs(pred) < 1e-8:
             print("Warning the derivative test has very small derivatives!")
-            return pred - truth  # use absolute error if too small a derivative
+            #return pred - truth  # use absolute error if too small a derivative
+            return (pred-truth)/truth
         else:
             return (pred - truth) / truth
 

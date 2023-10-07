@@ -390,7 +390,7 @@ class FUNtoFEMnlbgs(FUNtoFEMDriver):
                 return fail
 
             for body in self.model.bodies:
-                body.transfer_loads_adjoint(scenario)
+                body.transfer_loads_adjoint(scenario, time_index=step)
                 body.transfer_heat_flux_adjoint(scenario)
 
             fail = self.solvers.flow.iterate_adjoint(scenario, self.model.bodies, step)
@@ -401,12 +401,12 @@ class FUNtoFEMnlbgs(FUNtoFEMDriver):
                     print("Flow solver returned fail flag")
                 return fail
 
+            # extract and accumulate coordinate derivative every step
+            self._extract_coordinate_derivatives(scenario, self.model.bodies, step)
+
             for body in self.model.bodies:
                 body.transfer_disps_adjoint(scenario)
                 body.transfer_temps_adjoint(scenario)
-
-            # extract and accumulate coordinate derivative every step
-            self._extract_coordinate_derivatives(scenario, self.model.bodies, step)
 
         # end of solve loop
 

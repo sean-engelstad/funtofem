@@ -18,6 +18,7 @@ class TransferSchemeTest(unittest.TestCase):
 
         aero_nnodes = 1
         aero_X = np.random.random(3 * aero_nnodes).astype(TransferScheme.dtype)
+        aero_X[2::3] = 0
         transfer.setAeroNodes(aero_X)
 
         struct_nnodes = 3
@@ -26,6 +27,9 @@ class TransferSchemeTest(unittest.TestCase):
         struct_X[2::3] = 0.0 # zero out z dimension to make it planar
         print(f"struct_X = {struct_X}")
         transfer.setStructNodes(struct_X)
+
+        aero_X[:] = struct_X[:3]
+        transfer.setAeroNodes(aero_X)
 
         transfer.initialize()
 
@@ -250,9 +254,9 @@ class TransferSchemeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     test = TransferSchemeTest()
-    test.test_meld()
+    #test.test_meld()
     #test.test_meld_thermal()
-    #test.test_rbf()
+    test.test_rbf()
     #test.test_linear_meld()
     #test.test_beam_transfer()
     #test.test_quaternion_beam_transfer()

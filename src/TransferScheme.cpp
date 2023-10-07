@@ -2073,7 +2073,7 @@ void LDTransferScheme::computeRotation(const F2FScalar *H, F2FScalar *R,
   LAPACKdgesvd("All", "All", &m, &n, Hcopy, &lda, s, U, &ldu, VT, &ldvt, work,
                &lwork, &info); // compute SVD
 
-  printf("SVD singular values s1 = %.4e, %.4e, %.4e\n", s[0], s[1], s[2]);
+  //printf("SVD singular values s1 = %.4e, %.4e, %.4e\n", s[0], s[1], s[2]);
 
   // R = U * V^T
   // [ R[0] R[3] R[6] ] = [ U[0] U[3] U[6] ][ VT[0] VT[3] VT[6] ]

@@ -29,8 +29,8 @@ results_folder, output_folder = make_test_directories(comm, base_dir)
 in_github_workflow = bool(os.getenv("GITHUB_ACTIONS"))
 
 # user-defined settings
-steps = 10
-elastic_scheme = "rbf"
+steps = 2
+elastic_scheme = "meld"
 dt = 0.001
 
 

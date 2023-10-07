@@ -353,10 +353,11 @@ void MELD::computeCovariance(const F2FScalar *X, const F2FScalar *Xd,
   detH = det(H);
   if (abs(F2FRealPart(detH)) < 1e-10)
   {
-    printf("Warning detH = %.4e < 1e-10 for covariance in funtofem MELD disp transfer... adding 1e-1*eye(3)\n", detH);
-    H[0] += 1e-1;
-    H[4] += 1e-1;
-    H[8] += 1e-1;
+    //printf("Warning detH = %.4e < 1e-10 for covariance in funtofem MELD disp transfer... adding 1e-1*eye(3)\n", detH);
+    H[0] += 0.0;
+    //H[0] += 1e-1;
+    //H[4] += 1e-1;
+    //H[8] += 1e-1;
   }
 }
 
