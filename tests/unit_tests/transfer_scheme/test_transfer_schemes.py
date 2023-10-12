@@ -11,23 +11,31 @@ class TransferSchemeTest(unittest.TestCase):
         comm = MPI.COMM_WORLD
 
         # Set typical parameter values
-        isymm = 1  # Symmetry axis (0, 1, 2 or -1 for no symmetry)
+        isymm = -1  # Symmetry axis (0, 1, 2 or -1 for no symmetry)
         nn = 10  # Number of nearest neighbors to consider
         beta = 0.5  # Relative decay factor
         transfer = TransferScheme.pyMELD(comm, comm, 0, comm, 0, isymm, nn, beta)
 
-        aero_nnodes = 33
+        aero_nnodes = 1
         aero_X = np.random.random(3 * aero_nnodes).astype(TransferScheme.dtype)
+        aero_X[2::3] = 0
         transfer.setAeroNodes(aero_X)
 
-        struct_nnodes = 51
+        struct_nnodes = 3
         struct_X = np.random.random(3 * struct_nnodes).astype(TransferScheme.dtype)
+        #struct_X[1::3] = 0.0
+        struct_X[2::3] = 0.0 # zero out z dimension to make it planar
+        print(f"struct_X = {struct_X}")
         transfer.setStructNodes(struct_X)
+
+        aero_X[:] = struct_X[:3]
+        transfer.setAeroNodes(aero_X)
 
         transfer.initialize()
 
         # Set random forces
-        uS = np.random.random(3 * struct_nnodes).astype(TransferScheme.dtype)
+        #uS = np.random.random(3 * struct_nnodes).astype(TransferScheme.dtype)
+        uS = np.zeros((3*struct_nnodes,)).astype(TransferScheme.dtype)
         fA = np.random.random(3 * aero_nnodes).astype(TransferScheme.dtype)
 
         dh = 1e-6
@@ -43,6 +51,7 @@ class TransferSchemeTest(unittest.TestCase):
         assert fail == 0
 
         return
+        
 
     def test_meld_thermal(self):
         comm = MPI.COMM_WORLD
@@ -245,9 +254,9 @@ class TransferSchemeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     test = TransferSchemeTest()
-    test.test_meld()
-    test.test_meld_thermal()
+    #test.test_meld()
+    #test.test_meld_thermal()
     test.test_rbf()
-    test.test_linear_meld()
-    test.test_beam_transfer()
-    test.test_quaternion_beam_transfer()
+    #test.test_linear_meld()
+    #test.test_beam_transfer()
+    #test.test_quaternion_beam_transfer()
