@@ -32,7 +32,7 @@ from ._solver_interface import SolverInterface
 
 
 class TestAerodynamicSolver(SolverInterface):
-    def __init__(self, comm, model, copy_struct_mesh=False):
+    def __init__(self, comm, model, copy_struct_mesh=False, npts=10):
         """
         This class provides the functionality that FUNtoFEM expects from
         an aerodynamic solver.
@@ -130,7 +130,7 @@ class TestAerodynamicSolver(SolverInterface):
 
         self.comm = comm
         self.model = model
-        self.npts = 10
+        self.npts = npts
         np.random.seed(0)
 
         # Get the list of active design variables
@@ -435,7 +435,7 @@ class TestAerodynamicSolver(SolverInterface):
 
 
 class TestStructuralSolver(SolverInterface):
-    def __init__(self, comm, model, elastic_k=1.0, thermal_k=1.0):
+    def __init__(self, comm, model, elastic_k=1.0, thermal_k=1.0, npts=25):
         """
         A test solver that provides the functionality that FUNtoFEM expects from
         a structural solver.
@@ -457,7 +457,7 @@ class TestStructuralSolver(SolverInterface):
         """
 
         self.comm = comm
-        self.npts = 25
+        self.npts = npts
         np.random.seed(54321)
 
         # Get the list of active design variables

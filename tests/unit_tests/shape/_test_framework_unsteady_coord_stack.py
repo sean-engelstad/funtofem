@@ -104,8 +104,8 @@ class UnsteadyMeldCoordStack(StackTester):
         # f_A1 to f_S1 (load transfer)
         self.plate.transfer_loads(self.scenario, time_index=1)
         fS1 = self.plate.get_struct_loads(self.scenario, time_index=1)
-        #print(f"xA0 imag = {imag_norm(self.plate.aero_X)}")
-        #print(f"fS1 real = {real_norm(fS1)} imag = {imag_norm(fS1)}")
+        # print(f"xA0 imag = {imag_norm(self.plate.aero_X)}")
+        # print(f"fS1 real = {real_norm(fS1)} imag = {imag_norm(fS1)}")
         return np.sum(fS1)
 
     def forward_4(self):
@@ -122,25 +122,34 @@ class UnsteadyMeldCoordStack(StackTester):
         # u_A2 to f_A2 (aero analysis step 2)
         self.solvers.flow.iterate(self.scenario, self.bodies, step=2)
         return np.sum(self.plate.get_aero_loads(self.scenario, time_index=1))
-    
+
     def forward_7(self):
         # f_A2 to f_S2 (load transfer)
         self.plate.transfer_loads(self.scenario, time_index=2)
         fS2 = self.plate.get_struct_loads(self.scenario, time_index=2)
         print(f"fS2 imag = {imag_norm(fS2)}")
         return np.sum(fS2)
-    
+
     def forward_8(self):
         # f_S2 to u_S2 (struct analysis step 2)
         self.solvers.structural.iterate(self.scenario, self.bodies, step=2)
         return np.sum(self.plate.get_struct_disps(self.scenario, time_index=2))
 
     # COMPLETE FORWARD STACK
-    FORWARD_STACK = [forward_1, forward_2, forward_3, forward_4, forward_5, forward_6, forward_7, forward_8]
+    FORWARD_STACK = [
+        forward_1,
+        forward_2,
+        forward_3,
+        forward_4,
+        forward_5,
+        forward_6,
+        forward_7,
+        forward_8,
+    ]
 
     # ADJOINT STACK METHODS
     # ---------------------------------------------------------
-    def adjoint_8(self, start:bool):
+    def adjoint_8(self, start: bool):
         if start:
             self.plate.struct_disps_ajp[:, 0] = np.ones((3 * self.plate.struct_nnodes,))
         self.plate.transfer_disps(self.scenario, time_index=1)
@@ -148,7 +157,7 @@ class UnsteadyMeldCoordStack(StackTester):
         self.solvers.structural.iterate_adjoint(self.scenario, self.bodies, step=2)
         return 0.0
 
-    def adjoint_7(self, start:bool):
+    def adjoint_7(self, start: bool):
         if start:
             self.plate.struct_loads_ajp[:, 0] = np.ones((3 * self.plate.struct_nnodes,))
         self.plate.transfer_loads_adjoint(self.scenario, time_index=2)
@@ -187,7 +196,7 @@ class UnsteadyMeldCoordStack(StackTester):
     def adjoint_4(self, start: bool):
         if start:
             self.plate.struct_disps_ajp[:, 0] = np.ones((3 * self.plate.struct_nnodes,))
-        #self.plate.transfer_disps(self.scenario, time_index=0)
+        # self.plate.transfer_disps(self.scenario, time_index=0)
         # purposely set the
         self.solvers.structural.iterate_adjoint(self.scenario, self.bodies, step=1)
         return 0.0
@@ -230,7 +239,16 @@ class UnsteadyMeldCoordStack(StackTester):
         return np.sum(temp_xa)
 
     # COMPLETE ADJOINT STACK
-    ADJOINT_STACK = [adjoint_1, adjoint_2, adjoint_3, adjoint_4, adjoint_5, adjoint_6, adjoint_7, adjoint_8]
+    ADJOINT_STACK = [
+        adjoint_1,
+        adjoint_2,
+        adjoint_3,
+        adjoint_4,
+        adjoint_5,
+        adjoint_6,
+        adjoint_7,
+        adjoint_8,
+    ]
 
     # temporarily only do first 4 since 4 fails
     stop_early = True

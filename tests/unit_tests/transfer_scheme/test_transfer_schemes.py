@@ -23,8 +23,8 @@ class TransferSchemeTest(unittest.TestCase):
 
         struct_nnodes = 3
         struct_X = np.random.random(3 * struct_nnodes).astype(TransferScheme.dtype)
-        #struct_X[1::3] = 0.0
-        struct_X[2::3] = 0.0 # zero out z dimension to make it planar
+        # struct_X[1::3] = 0.0
+        struct_X[2::3] = 0.0  # zero out z dimension to make it planar
         print(f"struct_X = {struct_X}")
         transfer.setStructNodes(struct_X)
 
@@ -34,8 +34,8 @@ class TransferSchemeTest(unittest.TestCase):
         transfer.initialize()
 
         # Set random forces
-        #uS = np.random.random(3 * struct_nnodes).astype(TransferScheme.dtype)
-        uS = np.zeros((3*struct_nnodes,)).astype(TransferScheme.dtype)
+        # uS = np.random.random(3 * struct_nnodes).astype(TransferScheme.dtype)
+        uS = np.zeros((3 * struct_nnodes,)).astype(TransferScheme.dtype)
         fA = np.random.random(3 * aero_nnodes).astype(TransferScheme.dtype)
 
         dh = 1e-6
@@ -51,7 +51,6 @@ class TransferSchemeTest(unittest.TestCase):
         assert fail == 0
 
         return
-        
 
     def test_meld_thermal(self):
         comm = MPI.COMM_WORLD
@@ -254,9 +253,9 @@ class TransferSchemeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     test = TransferSchemeTest()
-    #test.test_meld()
-    #test.test_meld_thermal()
-    test.test_rbf()
-    #test.test_linear_meld()
-    #test.test_beam_transfer()
-    #test.test_quaternion_beam_transfer()
+    test.test_meld()
+    # test.test_meld_thermal()
+    # test.test_rbf()
+    # test.test_linear_meld()
+    # test.test_beam_transfer()
+    # test.test_quaternion_beam_transfer()

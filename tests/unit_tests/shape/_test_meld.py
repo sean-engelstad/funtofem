@@ -9,10 +9,7 @@ from funtofem.interface import (
     TestStructuralSolver,
     SolverManager,
     make_test_directories,
-    StackTester,
-    imag_norm,
-    real_norm,
-    TestResult
+    TestResult,
 )
 from funtofem.driver import TransferSettings, FUNtoFEMnlbgs
 
@@ -30,6 +27,8 @@ steps = (
 )
 elastic_scheme = "meld"
 dt = 0.001
+zero_disps = False
+
 
 @unittest.skipIf(
     not complex_mode, "only testing coordinate derivatives with complex step"
@@ -54,29 +53,28 @@ class TestFrameworkUnsteadyCoordStack(unittest.TestCase):
         # build the tacs interface, coupled driver, and oneway driver
         comm = MPI.COMM_WORLD
         solvers = SolverManager(comm)
-        solvers.flow = TestAerodynamicSolver(comm, model)
+        solvers.flow = TestAerodynamicSolver(comm, model, npts=1)
         solvers.structural = TestStructuralSolver(comm, model)
         transfer_settings = TransferSettings(elastic_scheme=elastic_scheme, npts=5)
-        FUNtoFEMnlbgs(
-            solvers, transfer_settings=transfer_settings, model=model
-        )
+        FUNtoFEMnlbgs(solvers, transfer_settings=transfer_settings, model=model)
 
         # test the load transfer ajps
         h = 1e-30
         p = np.random.rand(3 * plate.aero_nnodes).astype(plate.dtype)
-        uS = np.random.rand(3 * plate.struct_nnodes).astype(plate.dtype)
+        if zero_disps:
+            uS = np.zeros((3 * plate.struct_nnodes,)).astype(plate.dtype)
+        else:
+            uS = np.random.rand(3 * plate.struct_nnodes).astype(plate.dtype)
         fA = np.random.rand(3 * plate.aero_nnodes).astype(plate.dtype)
         uA = np.zeros((3 * plate.aero_nnodes)).astype(plate.dtype)
         fS = np.zeros((3 * plate.struct_nnodes)).astype(plate.dtype)
         q = np.zeros((3 * plate.struct_nnodes)).astype(plate.dtype)
         xA0_bar = np.zeros((3 * plate.aero_nnodes)).astype(plate.dtype)
-        Ja = np.random.rand(3 * plate.aero_nnodes,3 * plate.aero_nnodes).astype(plate.dtype)
-        Js = np.random.rand(3 * plate.struct_nnodes, 3 * plate.struct_nnodes).astype(plate.dtype)
 
         # real mode forward analysis
-        plate.transfer.transferDisps(uS, uA) # init disp transfer in order
+        plate.transfer.transferDisps(uS, uA)  # init disp transfer in order
         plate.transfer.transferLoads(fA, fS)
-        
+
         # real mode adjoint analysis
         q[:] = 1.0
         plate.transfer.applydLdxA0(q, xA0_bar)
@@ -86,7 +84,7 @@ class TestFrameworkUnsteadyCoordStack(unittest.TestCase):
         plate.aero_X += 1j * p * h
         plate.update_transfer()
         fS = np.zeros((3 * plate.struct_nnodes)).astype(plate.dtype)
-        plate.transfer.transferDisps(uS, uA) # init disp transfer in order
+        plate.transfer.transferDisps(uS, uA)  # init disp transfer in order
         plate.transfer.transferLoads(fA, fS)
         dgdp_cmplx = np.imag(np.sum(fS)) / h
 
@@ -117,28 +115,33 @@ class TestFrameworkUnsteadyCoordStack(unittest.TestCase):
         solvers.flow = TestAerodynamicSolver(comm, model)
         solvers.structural = TestStructuralSolver(comm, model)
         transfer_settings = TransferSettings(elastic_scheme=elastic_scheme, npts=5)
-        FUNtoFEMnlbgs(
-            solvers, transfer_settings=transfer_settings, model=model
-        )
+        FUNtoFEMnlbgs(solvers, transfer_settings=transfer_settings, model=model)
 
         # test the load transfer ajps
         h = 1e-30
         p = np.random.rand(3 * plate.aero_nnodes).astype(plate.dtype)
-        uS = np.random.rand(3 * plate.struct_nnodes).astype(plate.dtype)
+        if zero_disps:
+            uS = np.zeros((3 * plate.struct_nnodes,)).astype(plate.dtype)
+        else:
+            uS = np.random.rand(3 * plate.struct_nnodes).astype(plate.dtype)
         fA = np.random.rand(3 * plate.aero_nnodes).astype(plate.dtype)
         uA = np.zeros((3 * plate.aero_nnodes)).astype(plate.dtype)
         fS = np.zeros((3 * plate.struct_nnodes)).astype(plate.dtype)
         q = np.zeros((3 * plate.struct_nnodes)).astype(plate.dtype)
         xA0_bar = np.zeros((3 * plate.aero_nnodes)).astype(plate.dtype)
-        Ja = np.random.rand(3 * plate.aero_nnodes,3 * plate.aero_nnodes).astype(plate.dtype)
-        Js = np.random.rand(3 * plate.struct_nnodes, 3 * plate.struct_nnodes).astype(plate.dtype)
+        Ja = np.random.rand(3 * plate.aero_nnodes, 3 * plate.aero_nnodes).astype(
+            plate.dtype
+        )
+        Js = np.random.rand(3 * plate.struct_nnodes, 3 * plate.struct_nnodes).astype(
+            plate.dtype
+        )
 
         # real mode forward analysis
-        plate.transfer.transferDisps(uS, uA) # init disp transfer in order
-        fA = Ja @ uA + 0.1*np.random.rand(3 * plate.aero_nnodes).astype(plate.dtype)
+        plate.transfer.transferDisps(uS, uA)  # init disp transfer in order
+        fA = Ja @ uA + 0.1 * np.random.rand(3 * plate.aero_nnodes).astype(plate.dtype)
         plate.transfer.transferLoads(fA, fS)
-        uS = Js @ fS + 0.1*np.random.rand(3 * plate.struct_nnodes).astype(plate.dtype)
-        
+        uS = Js @ fS + 0.1 * np.random.rand(3 * plate.struct_nnodes).astype(plate.dtype)
+
         # real mode adjoint analysis
         q[:] = 1.0
         fS_bar = Js.T @ q
@@ -149,10 +152,10 @@ class TestFrameworkUnsteadyCoordStack(unittest.TestCase):
         plate.aero_X += 1j * p * h
         plate.update_transfer()
         fS = np.zeros((3 * plate.struct_nnodes)).astype(plate.dtype)
-        plate.transfer.transferDisps(uS, uA) # init disp transfer in order
-        fA = Ja @ uA + 0.1*np.random.rand(3 * plate.aero_nnodes).astype(plate.dtype)
+        plate.transfer.transferDisps(uS, uA)  # init disp transfer in order
+        fA = Ja @ uA + 0.1 * np.random.rand(3 * plate.aero_nnodes).astype(plate.dtype)
         plate.transfer.transferLoads(fA, fS)
-        uS = Js @ fS + 0.1*np.random.rand(3 * plate.struct_nnodes).astype(plate.dtype)
+        uS = Js @ fS + 0.1 * np.random.rand(3 * plate.struct_nnodes).astype(plate.dtype)
         dgdp_cmplx = np.imag(np.sum(uS)) / h
 
         rel_error = TestResult.relative_error(dgdp_cmplx, dgdp_adj)
