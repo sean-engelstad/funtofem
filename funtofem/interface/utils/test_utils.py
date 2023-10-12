@@ -128,12 +128,13 @@ class TestResult:
         if truth == 0.0 and pred == 0.0:
             print("Warning the derivative test is indeterminate!")
             return 0.0
-        elif truth == 0.0 and pred != 0.0:
-            return 1.0  # arbitrary 100% error provided to fail test avoiding /0
-        elif abs(truth) <= 1e-8 and abs(pred) < 1e-8:
+        elif abs(truth) <= 1e-8 and abs(pred) <= 1e-8:
             print("Warning the derivative test has very small derivatives!")
             # return pred - truth  # use absolute error if too small a derivative
-            return (pred - truth) / truth
+            return pred - truth
+        elif truth == 0.0 and pred != 0.0:
+            print(f"Warning truth is 0.0 while pred is nonzero..")
+            return 1.0  # arbitrary 100% error provided to fail test avoiding /0
         else:
             return (pred - truth) / truth
 
@@ -543,6 +544,7 @@ class CoordinateDerivativeTester:
 
         return max_rel_error
 
+
 class StackTester(ABC):
     """
     Compares adjoint jacobian products to complex-step for each step along
@@ -559,7 +561,7 @@ class StackTester(ABC):
     def __init__(self, comm):
         # total number of steps in the stack
         self.comm = comm
-    
+
     @abstractmethod
     def reset(self):
         """reset any state variables in F2F for the next stack test"""
@@ -575,10 +577,12 @@ class StackTester(ABC):
         assert len(self.FORWARD_STACK) == len(self.ADJOINT_STACK)
         return len(self.FORWARD_STACK)
 
-    def complex_step(self,
+    def complex_step(
+        self,
         test_name,
         status_file,
         epsilon=1e-30,
+        rtol=1e-9,
     ):
         # clear the old status file
         if self.comm.rank == 0:
@@ -586,34 +590,41 @@ class StackTester(ABC):
 
         max_rel_error = 0.0
 
-        for nsteps in range(1, self.max_steps+1):
+        offending_nsteps = []
+        for nsteps in range(1, self.max_steps + 1):
             # perform each sub-test on the stack
             # ------------------------------------------
-
+            print(f"testing stack length {nsteps}")
             # forward analysis real mode
             self.reset()
             for step in range(nsteps):
-                self.FORWARD_STACK[step]()
-            
+                self.FORWARD_STACK[step](self)
+
             # adjoint analysis, real mode
             # adjoint steps written [N-1,N-2,...,0] for N the max # steps
             # go from [M-1,...,0] for M = nsteps <= max_steps (the last M entries)
+            adj_dir_deriv = 0.0
             for adj_step in range(nsteps):
-                step = self.max_steps - adj_step
-                adj_dir_deriv = self.ADJOINT_STACK[step]()
+                step = nsteps - 1 - adj_step
+                start = adj_step == 0
+                adj_dir_deriv += self.ADJOINT_STACK[step](self, start)
+            adj_dir_deriv = adj_dir_deriv.real
 
             # forward analysis complex mode
             self.reset()
             self.perturb_design(epsilon=epsilon)
             for step in range(nsteps):
-                cmplx_func = self.FORWARD_STACK[step]()
-            
+                cmplx_func = self.FORWARD_STACK[step](self)
+
             cmplx_deriv = np.imag(cmplx_func) / epsilon
 
             rel_error = TestResult.relative_error(cmplx_deriv, adj_dir_deriv)
             if abs(rel_error) > max_rel_error:
                 max_rel_error = abs(rel_error)
-            
+
+            if abs(rel_error) > rtol:
+                offending_nsteps += [nsteps]
+
             # make test results object and write it to file
             file_hdl = open(status_file, "a") if self.comm.rank == 0 else None
             TestResult(
@@ -626,13 +637,18 @@ class StackTester(ABC):
                 epsilon=epsilon,
             ).write(file_hdl).report()
 
-        return max_rel_error
+        if len(offending_nsteps) > 0:
+            print(f"stack tests are failing! - {offending_nsteps}")
+        else:
+            print(f"all stack tests pass..")
+        fail = len(offending_nsteps) > 0
+        return fail
 
     # properties for the stack tester class
     @property
     def forward_stack(self):
         return self._forward_stack
-    
+
     @forward_stack.setter
     def forward_stack(self, new_stack):
         self._forward_stack = new_stack
@@ -640,7 +656,7 @@ class StackTester(ABC):
     @property
     def adjoint_stack(self):
         return self._adjoint_stack
-    
+
     @adjoint_stack.setter
     def adjoint_stack(self, new_stack):
         self._adjoint_stack = new_stack

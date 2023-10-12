@@ -317,7 +317,7 @@ class TestAerodynamicSolver(SolverInterface):
 
     def iterate(self, scenario, bodies, step):
         """
-        Iterate for the aerodynamic or structural solver
+        Iterate for the aerodynamic solver
 
         Parameters
         ----------
@@ -371,7 +371,7 @@ class TestAerodynamicSolver(SolverInterface):
 
     def iterate_adjoint(self, scenario, bodies, step):
         """
-        Iterate for the aerodynamic or structural adjoint
+        Iterate for the aerodynamic adjoint
 
         Parameters
         ----------
@@ -660,7 +660,7 @@ class TestStructuralSolver(SolverInterface):
 
     def iterate(self, scenario, bodies, step):
         """
-        Iterate for the aerodynamic or structural solver
+        Iterate for the structural solver
 
         Parameters
         ----------
@@ -724,7 +724,7 @@ class TestStructuralSolver(SolverInterface):
 
     def iterate_adjoint(self, scenario, bodies, step):
         """
-        Iterate for the aerodynamic or structural adjoint
+        Iterate for the structural adjoint
 
         Parameters
         ----------
