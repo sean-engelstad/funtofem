@@ -49,10 +49,10 @@ class UnsteadyMeldCoordStack(StackTester):
         # build the tacs interface, coupled driver, and oneway driver
         comm = MPI.COMM_WORLD
         self.solvers = SolverManager(comm)
-        self.solvers.flow = TestAerodynamicSolver(comm, self.model)
-        self.solvers.structural = TestStructuralSolver(comm, self.model)
+        self.solvers.flow = TestAerodynamicSolver(comm, self.model, npts=10)
+        self.solvers.structural = TestStructuralSolver(comm, self.model, npts=25)
         self.transfer_settings = TransferSettings(
-            elastic_scheme=elastic_scheme, npts=10
+            elastic_scheme=elastic_scheme, npts=5, beta=0.5
         )
 
         # just build the driver but only used here to initialize the transfer schemes
@@ -76,10 +76,15 @@ class UnsteadyMeldCoordStack(StackTester):
         self.plate.update_transfer()
         self.plate.initialize_variables(self.scenario)
         self.plate.initialize_adjoint_variables(self.scenario)
+
+        # try changing u_S0 to nonzero..
+        u_S0 = self.plate.get_struct_disps(self.scenario, time_index=0)
+        u_S0[:] = np.random.rand(3 * self.plate.struct_nnodes)[:]
         return
 
     def perturb_design(self, epsilon):
         self.plate.aero_X += self.p_aero_X * epsilon * 1j
+        self.plate.update_transfer()
         return
 
     # FORWARD STACK METHODS
@@ -99,8 +104,8 @@ class UnsteadyMeldCoordStack(StackTester):
         # f_A1 to f_S1 (load transfer)
         self.plate.transfer_loads(self.scenario, time_index=1)
         fS1 = self.plate.get_struct_loads(self.scenario, time_index=1)
-        print(f"xA0 imag = {imag_norm(self.plate.aero_X)}")
-        print(f"fS1 imag = {imag_norm(fS1)}")
+        #print(f"xA0 imag = {imag_norm(self.plate.aero_X)}")
+        #print(f"fS1 real = {real_norm(fS1)} imag = {imag_norm(fS1)}")
         return np.sum(fS1)
 
     def forward_4(self):
@@ -117,12 +122,54 @@ class UnsteadyMeldCoordStack(StackTester):
         # u_A2 to f_A2 (aero analysis step 2)
         self.solvers.flow.iterate(self.scenario, self.bodies, step=2)
         return np.sum(self.plate.get_aero_loads(self.scenario, time_index=1))
+    
+    def forward_7(self):
+        # f_A2 to f_S2 (load transfer)
+        self.plate.transfer_loads(self.scenario, time_index=2)
+        fS2 = self.plate.get_struct_loads(self.scenario, time_index=2)
+        print(f"fS2 imag = {imag_norm(fS2)}")
+        return np.sum(fS2)
+    
+    def forward_8(self):
+        # f_S2 to u_S2 (struct analysis step 2)
+        self.solvers.structural.iterate(self.scenario, self.bodies, step=2)
+        return np.sum(self.plate.get_struct_disps(self.scenario, time_index=2))
 
     # COMPLETE FORWARD STACK
-    FORWARD_STACK = [forward_1, forward_2, forward_3, forward_4, forward_5, forward_6]
+    FORWARD_STACK = [forward_1, forward_2, forward_3, forward_4, forward_5, forward_6, forward_7, forward_8]
 
     # ADJOINT STACK METHODS
     # ---------------------------------------------------------
+    def adjoint_8(self, start:bool):
+        if start:
+            self.plate.struct_disps_ajp[:, 0] = np.ones((3 * self.plate.struct_nnodes,))
+        self.plate.transfer_disps(self.scenario, time_index=1)
+        # purposely set the
+        self.solvers.structural.iterate_adjoint(self.scenario, self.bodies, step=2)
+        return 0.0
+
+    def adjoint_7(self, start:bool):
+        if start:
+            self.plate.struct_loads_ajp[:, 0] = np.ones((3 * self.plate.struct_nnodes,))
+        self.plate.transfer_loads_adjoint(self.scenario, time_index=2)
+        temp_xa = np.zeros(3 * self.plate.aero_nnodes, dtype=self.plate.dtype)
+        psi_L = -self.plate.struct_loads_ajp[:, 0].copy()
+        self.plate.transfer.applydLdxA0(psi_L, temp_xa)
+        print(f"adj term 7 - {np.sum(temp_xa)}")
+
+        # random test vectors
+        if not start:
+            ts_vec = np.random.rand(3 * self.plate.struct_nnodes).astype(
+                self.plate.dtype
+            )
+            ta_vec = np.random.rand(3 * self.plate.aero_nnodes).astype(self.plate.dtype)
+            temp_xa = np.zeros(3 * self.plate.aero_nnodes, dtype=self.plate.dtype)
+            self.plate.transfer.applydLdxA0(ts_vec, temp_xa)
+            dL_dxa0_scalar = np.dot(ta_vec, temp_xa)
+            print(f"dL/dxA0 step 2 mag = {dL_dxa0_scalar}")
+
+        return np.sum(temp_xa)
+
     def adjoint_6(self, start: bool):
         if start:
             self.plate.aero_loads_ajp[:, 0] = np.ones((3 * self.plate.aero_nnodes,))
@@ -140,7 +187,7 @@ class UnsteadyMeldCoordStack(StackTester):
     def adjoint_4(self, start: bool):
         if start:
             self.plate.struct_disps_ajp[:, 0] = np.ones((3 * self.plate.struct_nnodes,))
-        self.plate.transfer_disps(self.scenario, time_index=0)
+        #self.plate.transfer_disps(self.scenario, time_index=0)
         # purposely set the
         self.solvers.structural.iterate_adjoint(self.scenario, self.bodies, step=1)
         return 0.0
@@ -155,15 +202,15 @@ class UnsteadyMeldCoordStack(StackTester):
         print(f"adj term 3 - {np.sum(temp_xa)}")
 
         # random test vectors
-        if not start:
-            ts_vec = np.random.rand(3 * self.plate.struct_nnodes).astype(
-                self.plate.dtype
-            )
-            ta_vec = np.random.rand(3 * self.plate.aero_nnodes).astype(self.plate.dtype)
-            temp_xa = np.zeros(3 * self.plate.aero_nnodes, dtype=self.plate.dtype)
-            self.plate.transfer.applydLdxA0(ts_vec, temp_xa)
-            dL_dxa0_scalar = np.dot(ta_vec, temp_xa)
-            print(f"dL/dxA0 step 1 mag = {dL_dxa0_scalar}")
+        # if not start:
+        #     ts_vec = np.random.rand(3 * self.plate.struct_nnodes).astype(
+        #         self.plate.dtype
+        #     )
+        #     ta_vec = np.random.rand(3 * self.plate.aero_nnodes).astype(self.plate.dtype)
+        #     temp_xa = np.zeros(3 * self.plate.aero_nnodes, dtype=self.plate.dtype)
+        #     self.plate.transfer.applydLdxA0(ts_vec, temp_xa)
+        #     dL_dxa0_scalar = np.dot(ta_vec, temp_xa)
+        #     print(f"dL/dxA0 step 1 mag = {dL_dxa0_scalar}")
 
         return np.sum(temp_xa)
 
@@ -183,11 +230,13 @@ class UnsteadyMeldCoordStack(StackTester):
         return np.sum(temp_xa)
 
     # COMPLETE ADJOINT STACK
-    ADJOINT_STACK = [adjoint_1, adjoint_2, adjoint_3, adjoint_4, adjoint_5, adjoint_6]
+    ADJOINT_STACK = [adjoint_1, adjoint_2, adjoint_3, adjoint_4, adjoint_5, adjoint_6, adjoint_7, adjoint_8]
 
     # temporarily only do first 4 since 4 fails
-    FORWARD_STACK = FORWARD_STACK[:4]
-    ADJOINT_STACK = ADJOINT_STACK[:4]
+    stop_early = True
+    if stop_early:
+        FORWARD_STACK = FORWARD_STACK[:4]
+        ADJOINT_STACK = ADJOINT_STACK[:4]
 
 
 @unittest.skipIf(
