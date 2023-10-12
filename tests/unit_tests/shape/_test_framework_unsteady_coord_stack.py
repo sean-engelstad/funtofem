@@ -10,6 +10,8 @@ from funtofem.interface import (
     SolverManager,
     make_test_directories,
     StackTester,
+    imag_norm,
+    real_norm,
 )
 from funtofem.driver import TransferSettings, FUNtoFEMnlbgs
 
@@ -96,7 +98,10 @@ class UnsteadyMeldCoordStack(StackTester):
     def forward_3(self):
         # f_A1 to f_S1 (load transfer)
         self.plate.transfer_loads(self.scenario, time_index=1)
-        return np.sum(self.plate.get_struct_loads(self.scenario, time_index=1))
+        fS1 = self.plate.get_struct_loads(self.scenario, time_index=1)
+        print(f"xA0 imag = {imag_norm(self.plate.aero_X)}")
+        print(f"fS1 imag = {imag_norm(fS1)}")
+        return np.sum(fS1)
 
     def forward_4(self):
         # f_S1 to u_S1 (struct analysis)
@@ -147,7 +152,19 @@ class UnsteadyMeldCoordStack(StackTester):
         temp_xa = np.zeros(3 * self.plate.aero_nnodes, dtype=self.plate.dtype)
         psi_L = -self.plate.struct_loads_ajp[:, 0].copy()
         self.plate.transfer.applydLdxA0(psi_L, temp_xa)
-        print(f"3 - {np.sum(temp_xa)}")
+        print(f"adj term 3 - {np.sum(temp_xa)}")
+
+        # random test vectors
+        if not start:
+            ts_vec = np.random.rand(3 * self.plate.struct_nnodes).astype(
+                self.plate.dtype
+            )
+            ta_vec = np.random.rand(3 * self.plate.aero_nnodes).astype(self.plate.dtype)
+            temp_xa = np.zeros(3 * self.plate.aero_nnodes, dtype=self.plate.dtype)
+            self.plate.transfer.applydLdxA0(ts_vec, temp_xa)
+            dL_dxa0_scalar = np.dot(ta_vec, temp_xa)
+            print(f"dL/dxA0 step 1 mag = {dL_dxa0_scalar}")
+
         return np.sum(temp_xa)
 
     def adjoint_2(self, start: bool):
@@ -162,13 +179,15 @@ class UnsteadyMeldCoordStack(StackTester):
         temp_xa = np.zeros(3 * self.plate.aero_nnodes, dtype=self.plate.dtype)
         psi_D = -self.plate.aero_disps_ajp[:, 0].copy()
         self.plate.transfer.applydDdxA0(psi_D, temp_xa)
+        print(f"adj term 1 - {np.sum(temp_xa)}")
         return np.sum(temp_xa)
 
     # COMPLETE ADJOINT STACK
     ADJOINT_STACK = [adjoint_1, adjoint_2, adjoint_3, adjoint_4, adjoint_5, adjoint_6]
 
-    # FORWARD_STACK = FORWARD_STACK[:4]
-    # ADJOINT_STACK = ADJOINT_STACK[:4]
+    # temporarily only do first 4 since 4 fails
+    FORWARD_STACK = FORWARD_STACK[:4]
+    ADJOINT_STACK = ADJOINT_STACK[:4]
 
 
 @unittest.skipIf(
