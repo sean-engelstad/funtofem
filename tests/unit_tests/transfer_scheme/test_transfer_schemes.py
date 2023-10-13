@@ -3,7 +3,7 @@ from funtofem import TransferScheme
 from mpi4py import MPI
 import unittest
 
-np.random.seed(1234567)
+#np.random.seed(1234567)
 
 
 class TransferSchemeTest(unittest.TestCase):
@@ -18,17 +18,18 @@ class TransferSchemeTest(unittest.TestCase):
 
         aero_nnodes = 1
         aero_X = np.random.random(3 * aero_nnodes).astype(TransferScheme.dtype)
-        aero_X[2::3] = 0
+        #aero_X[2::3] = 0
+        print(f"aero_X = {aero_X}")
         transfer.setAeroNodes(aero_X)
 
         struct_nnodes = 3
         struct_X = np.random.random(3 * struct_nnodes).astype(TransferScheme.dtype)
         # struct_X[1::3] = 0.0
-        struct_X[2::3] = 0.0  # zero out z dimension to make it planar
+        #struct_X[2::3] = 0.0  # zero out z dimension to make it planar
         print(f"struct_X = {struct_X}")
         transfer.setStructNodes(struct_X)
 
-        aero_X[:] = struct_X[:3]
+        #aero_X[:] = struct_X[:3]
         transfer.setAeroNodes(aero_X)
 
         transfer.initialize()
@@ -37,6 +38,7 @@ class TransferSchemeTest(unittest.TestCase):
         # uS = np.random.random(3 * struct_nnodes).astype(TransferScheme.dtype)
         uS = np.zeros((3 * struct_nnodes,)).astype(TransferScheme.dtype)
         fA = np.random.random(3 * aero_nnodes).astype(TransferScheme.dtype)
+        print(f"fA = {fA}")
 
         dh = 1e-6
         rtol = 1e-5

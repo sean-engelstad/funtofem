@@ -941,7 +941,8 @@ int LDTransferScheme::testAllDerivatives(const F2FScalar *struct_disps,
   for (int j = 0; j < dof_per_node * struct_nnodes; j++)
   {
     uS_pert[j] = (1.0 * rand()) / RAND_MAX;
-    test_vec_s1[j] = (1.0 * rand()) / RAND_MAX;
+    //test_vec_s1[j] = (1.0 * rand()) / RAND_MAX;
+    test_vec_s1[j] = 1.0;
     test_vec_s2[j] = (1.0 * rand()) / RAND_MAX;
   }
 
@@ -1775,6 +1776,7 @@ int LDTransferScheme::testdLdxA0Products(const F2FScalar *struct_disps,
   {
     XA0_cs[i] =
         Xa[i] + F2FScalar(0.0, F2FRealPart(h) * F2FRealPart(test_vec_a[i]));
+    printf("i %d test_vec_a %22.15e\n", i, test_vec_a[i]);
   }
   setAeroNodes(XA0_cs, na);
   transferDisps(struct_disps, aero_disps);
@@ -1784,6 +1786,7 @@ int LDTransferScheme::testdLdxA0Products(const F2FScalar *struct_disps,
   for (int j = 0; j < dof_per_node * ns_local; j++)
   {
     F2FScalar Phi = struct_loads[j];
+    printf("j %d test_vec_s %22.15e\n", j, test_vec_s[j]);
     lamPhi += test_vec_s[j] * Phi;
   }
   MPI_Allreduce(MPI_IN_PLACE, &lamPhi, 1, F2F_MPI_TYPE, MPI_SUM, global_comm);

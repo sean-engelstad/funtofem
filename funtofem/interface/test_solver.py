@@ -32,7 +32,7 @@ from ._solver_interface import SolverInterface
 
 
 class TestAerodynamicSolver(SolverInterface):
-    def __init__(self, comm, model, copy_struct_mesh=False, npts=10):
+    def __init__(self, comm, model, copy_struct_mesh=False, npts=10, aero_X=None):
         """
         This class provides the functionality that FUNtoFEM expects from
         an aerodynamic solver.
@@ -133,6 +133,10 @@ class TestAerodynamicSolver(SolverInterface):
         self.npts = npts
         np.random.seed(0)
 
+        if aero_X is not None:
+            self.npts = int(aero_X.shape[0] // 3)
+            self.aero_X = aero_X
+
         # Get the list of active design variables
         self.variables = model.get_variables()
 
@@ -153,6 +157,8 @@ class TestAerodynamicSolver(SolverInterface):
         # Set random initial node locations
         if copy_struct_mesh:
             self._copy_struct_mesh()
+        elif aero_X is not None:
+            pass
         else:
             self.aero_X = np.random.rand(3 * self.npts).astype(TransferScheme.dtype)
 
@@ -435,7 +441,7 @@ class TestAerodynamicSolver(SolverInterface):
 
 
 class TestStructuralSolver(SolverInterface):
-    def __init__(self, comm, model, elastic_k=1.0, thermal_k=1.0, npts=25):
+    def __init__(self, comm, model, elastic_k=1.0, thermal_k=1.0, npts=25, struct_X=None):
         """
         A test solver that provides the functionality that FUNtoFEM expects from
         a structural solver.
@@ -459,6 +465,10 @@ class TestStructuralSolver(SolverInterface):
         self.comm = comm
         self.npts = npts
         np.random.seed(54321)
+
+        if struct_X is not None:
+            self.npts = int(struct_X.shape[0] // 3)
+            self.struct_X = struct_X
 
         # Get the list of active design variables
         self.variables = model.get_variables()
@@ -537,7 +547,8 @@ class TestStructuralSolver(SolverInterface):
             self.scenario_data[scenario.id] = ScenarioData(self.npts, self.struct_dvs)
 
         # Set random initial node locations
-        self.struct_X = np.random.rand(3 * self.npts).astype(TransferScheme.dtype)
+        if struct_X is None:
+            self.struct_X = np.random.rand(3 * self.npts).astype(TransferScheme.dtype)
 
         # Initialize the coordinates of the structural mesh
         struct_id = np.arange(1, self.npts + 1)
