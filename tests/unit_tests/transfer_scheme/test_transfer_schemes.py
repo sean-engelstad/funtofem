@@ -11,7 +11,7 @@ class TransferSchemeTest(unittest.TestCase):
         comm = MPI.COMM_WORLD
 
         # Set typical parameter values
-        isymm = -1  # Symmetry axis (0, 1, 2 or -1 for no symmetry)
+        isymm = 1  # Symmetry axis (0, 1, 2 or -1 for no symmetry)
         nn = 10  # Number of nearest neighbors to consider
         beta = 0.5  # Relative decay factor
         transfer = TransferScheme.pyMELD(comm, comm, 0, comm, 0, isymm, nn, beta)
