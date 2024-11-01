@@ -16,6 +16,7 @@ from .general_utils import *
 tacs_loader = importlib.util.find_spec("tacs")
 if tacs_loader is not None:
     from .funtofem_callback import *
+    from .pytacs_utils import *
 
 from .test_result import *
 from .test_utils import *
