@@ -20,7 +20,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-__all__ = ["FUNtoFEMmodal"]
+__all__ = ["FUNtoFEMmodalDriver"]
 
 import numpy as np
 from mpi4py import MPI
@@ -73,6 +73,13 @@ class FUNtoFEMmodalDriver(FUNtoFEMDriver):
             reload_funtofem_states=reload_funtofem_states,
         )
 
+        # initialize modal variables
+        for scenario in model.scenarios:
+            for body in model.bodies:
+                body.initialize_modal_variables(scenario)
+
+        # TODO : initialize adjoint modal variables also
+
         return
 
     @property
@@ -100,7 +107,6 @@ class FUNtoFEMmodalDriver(FUNtoFEMDriver):
 
         for body in bodies:
             body.initialize_adjoint_variables(scenario)
-
         return
 
     def _solve_steady_forward(self, scenario, steps=None):
@@ -124,8 +130,8 @@ class FUNtoFEMmodalDriver(FUNtoFEMDriver):
         for body in self.model.bodies:
             # Get the modal coordinates on the structure mesh and compute the product
             # to get effective disps.
-            body.convert_modal_disps(scenario)
-            body.convert_modal_temps(scenario)
+            body.convert_modal_struct_disps(scenario)
+            body.convert_modal_struct_temps(scenario)
             # At this stage, we've recreated u_s and T_s
 
             body.transfer_disps(scenario)
@@ -157,10 +163,14 @@ class FUNtoFEMmodalDriver(FUNtoFEMDriver):
 
         # Additional computation to transpose modal coordinate matrix
         for body in self.model.bodies:
-            body.convert_modal_disps_transpose(scenario)
-            body.convert_modal_temps_transpose(scenario)
+            body.convert_modal_struct_disps_transpose(scenario)
+            body.convert_modal_struct_temps_transpose(scenario)
 
         return fail
+    
+    def _initialize_modal_adjoint_variables(self, scenario, bodies):
+        for body in bodies:
+            body.initialize_modal_adjoint_variables(scenario)
 
     def _solve_steady_adjoint(self, scenario):
         """
@@ -177,7 +187,9 @@ class FUNtoFEMmodalDriver(FUNtoFEMDriver):
         assert scenario.steady
         fail = 0
 
-        # Load the current state
+        self._initialize_modal_adjoint_variables(scenario, self.model.bodies)
+
+        # Load the current state (is this correct still for modal driver?)
         for body in self.model.bodies:
             body.transfer_disps(scenario)
             body.transfer_loads(scenario)
@@ -187,6 +199,13 @@ class FUNtoFEMmodalDriver(FUNtoFEMDriver):
 
         # Initialize the adjoint variables
         self._initialize_adjoint_variables(scenario, self.model.bodies)
+
+        # somewhere also need to get initial modal disp ajp or something?
+
+        # TODO : double check my preliminary code here
+        for body in self.model.bodies:
+            body.convert_modal_struct_disps_transpose_adjoint(scenario)
+            body.convert_modal_struct_temps_transpose_adjoint(scenario)
 
         # Take a step in the structural adjoint
         fail = self.solvers.structural.iterate_adjoint(
@@ -207,89 +226,13 @@ class FUNtoFEMmodalDriver(FUNtoFEMDriver):
                 if self.comm.Get_rank() == 0:
                     print("Flow solver returned fail flag.")
                 return fail
+        
+        for body in self.model.bodies:
+            body.transfer_disps_adjoint(scenario)
+            body.transfer_temps_adjoint(scenario)
 
-        ###
-
-        # loop over the adjoint NLBGS solver in a loose coupling phase
-        for i, nlbgs_steps in enumerate(
-            [scenario.adjoint_steps, scenario.post_tight_adjoint_steps]
-        ):
-            if i == 0:  # loose coupling phase
-                start = 1
-            else:  # tight coupling phase
-                self.solvers.flow.initialize_adjoint_tight_coupling(scenario)
-                start = self.solvers.flow.get_last_adjoint_step()
-
-            for step in range(start, nlbgs_steps + start):
-                # Get force and heat flux terms for the flow solver
-                for body in self.model.bodies:
-                    body.transfer_loads_adjoint(scenario)
-                    body.transfer_heat_flux_adjoint(scenario)
-
-                # Iterate over the aerodynamic adjoint
-                fail = self.solvers.flow.iterate_adjoint(
-                    scenario, self.model.bodies, step
-                )
-
-                fail = self.comm.allreduce(fail)
-                if fail != 0:
-                    if self.comm.Get_rank() == 0:
-                        print("Flow solver returned fail flag")
-                    return fail
-
-                # Get the structural adjoint rhs
-                for body in self.model.bodies:
-                    body.transfer_disps_adjoint(scenario)
-                    body.transfer_temps_adjoint(scenario)
-
-                # take a step in the structural adjoint
-                fail = self.solvers.structural.iterate_adjoint(
-                    scenario, self.model.bodies, step
-                )
-
-                fail = self.comm.allreduce(fail)
-                if fail != 0:
-                    if self.comm.Get_rank() == 0:
-                        print("Structural solver returned fail flag")
-                    return fail
-
-                for body in self.model.bodies:
-                    body.aitken_adjoint_relax(self.comm, scenario)
-
-                # check for early stopping criterion, exit if meets criterion
-                exit_early = False
-                # only exit early in the loose coupling phase
-                if (
-                    scenario.early_stopping
-                    and step > scenario.min_adjoint_steps
-                    and i == 0
-                ):
-                    all_converged = True  # assume all converged until proven otherwise (then when one isn't exit for loop)
-                    for isolver, solver in enumerate(self.solvers.solver_list):
-                        adjoint_resid = abs(solver.get_adjoint_residual(step=step))
-                        adjoint_tol = solver.adjoint_tolerance
-                        if self.comm.rank == 0:
-                            print(
-                                f"f2f scenario {scenario.name}, adjoint resid = {adjoint_resid}",
-                                flush=True,
-                            )
-
-                        if adjoint_resid > adjoint_tol:
-                            all_converged = False
-
-                    if all_converged:
-                        exit_early = True
-                        if exit_early and self.comm.rank == 0:
-                            print(
-                                f"F2F Steady Adjoint analysis of scenario {scenario.name}"
-                            )
-                            print(
-                                f"\texited early at step {step} with tolerance {adjoint_resid} < {adjoint_tol}",
-                                flush=True,
-                            )
-
-                if exit_early:
-                    break
+            body.convert_modal_struct_disps_adjoint(scenario)
+            body.convert_modal_struct_temps_adjoint(scenario)
 
         # are we then extracting coordinate derivatives at correct time step (doesn't actually use time step for steady case here)
         steps = (

@@ -15,3 +15,6 @@ from .transfer_settings import *
 from .funtofem_shape_driver import *
 from .oneway_struct_driver import *
 from .oneway_aero_driver import *
+
+# modal driver
+from .modal_idf_driver import *
